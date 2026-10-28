@@ -17,4 +17,7 @@ set(CORECRYPTO_ccaes_SOURCES
     ccaes_ctr_crypt_mode.c
     ccaes_ecb_decrypt_mode.c
     ccaes_ecb_encrypt_mode.c
+    ccaes_factory_modes.c
+    ccaes_xts_decrypt_mode.c
+    ccaes_xts_encrypt_mode.c
 )

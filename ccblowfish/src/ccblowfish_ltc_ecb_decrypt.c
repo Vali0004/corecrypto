@@ -43,8 +43,9 @@ cc_error_t ccblowfish_ltc_ecb_decrypt(const ccecb_ctx *ctx,
  #endif
     
     while (nblocks--) {
-        cc_load32_be(L, &ct[0]);
-        cc_load32_be(R, &ct[4]);
+        // encryption stores r first, so it is read back first
+        cc_load32_be(R, &ct[0]);
+        cc_load32_be(L, &ct[4]);
         
         /* undo last keying */
         R ^= skey->K[17];
@@ -59,8 +60,8 @@ cc_error_t ccblowfish_ltc_ecb_decrypt(const ccecb_ctx *ctx,
         }
 
         /* store */
-        cc_store32_be(R, &pt[0]);
-        cc_store32_be(L, &pt[4]);
+        cc_store32_be(L, &pt[0]);
+        cc_store32_be(R, &pt[4]);
         
         pt += CCBLOWFISH_BLOCK_SIZE;
         ct += CCBLOWFISH_BLOCK_SIZE;

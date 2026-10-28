@@ -7,6 +7,7 @@
  */
 
 #include <corecrypto/ccblowfish.h>
+#include <corecrypto/ccmode_factory.h>
 #include <corecrypto/ccmode_internal.h>
 
 // might as well just have these here. we don't use any other impls.
@@ -18,6 +19,4 @@ const struct ccmode_ecb *ccblowfish_ecb_decrypt_mode(void) {
     return &ccblowfish_ltc_ecb_decrypt_mode;
 }
 
-CCMODE_CBC_FACTORY(blowfish, encrypt);
-CCMODE_CBC_FACTORY(blowfish, decrypt);
-CCMODE_CTR_FACTORY(blowfish);
+CCMODE_ALL_LEGACY_FACTORIES(blowfish)

@@ -3,6 +3,7 @@ set(CORECRYPTO_ccdes_PUBLIC_HEADERS
 )
 
 set(CORECRYPTO_ccdes_SOURCES
+    ccdes_cbc_cksum.c
     ccdes_ecb_decrypt_mode.c
     ccdes_ecb_encrypt_mode.c
     ccdes_factory_modes.c

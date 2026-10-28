@@ -7,8 +7,7 @@
  */
 
 #include <corecrypto/ccdes.h>
+#include <corecrypto/ccmode_factory.h>
 #include <corecrypto/ccmode_internal.h>
 
-CCMODE_CBC_FACTORY(des, encrypt);
-CCMODE_CBC_FACTORY(des, decrypt);
-CCMODE_CTR_FACTORY(des);
+CCMODE_ALL_LEGACY_FACTORIES(des)

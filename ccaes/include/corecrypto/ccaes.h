@@ -114,6 +114,16 @@ CC_EXPORT const struct ccmode_xts *ccaes_xts_decrypt_mode(void) CORECRYPTO_API_A
  */
 CC_EXPORT const struct ccmode_xts *ccaes_xts_encrypt_mode(void) CORECRYPTO_API_AVAILABLE_2012;
 
+CC_EXPORT const struct ccmode_cfb *ccaes_cfb_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb *ccaes_cfb_decrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *ccaes_cfb8_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *ccaes_cfb8_decrypt_mode(void);
+CC_EXPORT const struct ccmode_ofb *ccaes_ofb_crypt_mode(void);
+CC_EXPORT const struct ccmode_gcm *ccaes_gcm_encrypt_mode(void);
+CC_EXPORT const struct ccmode_gcm *ccaes_gcm_decrypt_mode(void);
+CC_EXPORT const struct ccmode_ccm *ccaes_ccm_encrypt_mode(void);
+CC_EXPORT const struct ccmode_ccm *ccaes_ccm_decrypt_mode(void);
+
 CC_END_DECLS
 
 #endif /* __CORECRYPTO_CCAES_H__  */

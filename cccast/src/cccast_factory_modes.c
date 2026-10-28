@@ -7,6 +7,7 @@
  */
 
 #include <corecrypto/cccast.h>
+#include <corecrypto/ccmode_factory.h>
 #include <corecrypto/ccmode_internal.h>
 
 // might as well just have these here. we don't use any other impls.
@@ -18,6 +19,4 @@ const struct ccmode_ecb *cccast_ecb_decrypt_mode(void) {
     return &cccast_eay_ecb_decrypt_mode;
 }
 
-CCMODE_CBC_FACTORY(cast, encrypt);
-CCMODE_CBC_FACTORY(cast, decrypt);
-CCMODE_CTR_FACTORY(cast);
+CCMODE_ALL_LEGACY_FACTORIES(cast)

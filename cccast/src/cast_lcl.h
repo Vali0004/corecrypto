@@ -172,7 +172,7 @@
 #if defined(WIN32) && defined(_MSC_VER)
 #define ROTL(a,n)     (_lrotl(a,n))
 #else
-#define ROTL(a,n)     ((((a)<<(n))&0xffffffffL)|((a)>>(32-(n))))
+#define ROTL(a,n)     ((((a)<<((n)&31))&0xffffffffL)|((a)>>((32-((n)&31))&31)))
 #endif
 
 #define C_M    0x3fc

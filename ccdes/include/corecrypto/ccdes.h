@@ -96,6 +96,17 @@ uint32_t ccdes_cbc_cksum(const void *in,
                          const void *iv);
 
 
+CC_EXPORT const struct ccmode_cfb *ccdes_cfb_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb *ccdes_cfb_decrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *ccdes_cfb8_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *ccdes_cfb8_decrypt_mode(void);
+CC_EXPORT const struct ccmode_ofb *ccdes_ofb_crypt_mode(void);
+CC_EXPORT const struct ccmode_cfb *ccdes3_cfb_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb *ccdes3_cfb_decrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *ccdes3_cfb8_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *ccdes3_cfb8_decrypt_mode(void);
+CC_EXPORT const struct ccmode_ofb *ccdes3_ofb_crypt_mode(void);
+
 CC_END_DECLS
 
 #endif /* __CORECRYPTO_CCDES_H__  */

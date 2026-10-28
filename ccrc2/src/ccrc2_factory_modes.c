@@ -7,6 +7,7 @@
  */
 
 #include <corecrypto/ccrc2.h>
+#include <corecrypto/ccmode_factory.h>
 #include <corecrypto/ccmode_internal.h>
 
 // might as well just have these here. we don't use any other impls.
@@ -18,6 +19,4 @@ const struct ccmode_ecb *ccrc2_ecb_decrypt_mode(void) {
     return &ccrc2_ltc_ecb_decrypt_mode;
 }
 
-CCMODE_CBC_FACTORY(rc2, encrypt);
-CCMODE_CBC_FACTORY(rc2, decrypt);
-CCMODE_CTR_FACTORY(rc2);
+CCMODE_ALL_LEGACY_FACTORIES(rc2)

@@ -39,6 +39,12 @@ const struct ccmode_cbc *cccast_cbc_decrypt_mode(void);
 CC_EXPORT
 const struct ccmode_ctr *cccast_ctr_crypt_mode(void);
 
+CC_EXPORT const struct ccmode_cfb *cccast_cfb_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb *cccast_cfb_decrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *cccast_cfb8_encrypt_mode(void);
+CC_EXPORT const struct ccmode_cfb8 *cccast_cfb8_decrypt_mode(void);
+CC_EXPORT const struct ccmode_ofb *cccast_ofb_crypt_mode(void);
+
 CC_END_DECLS
 
 #endif /* __CORECRYPTO_CCCAST_H__ */
