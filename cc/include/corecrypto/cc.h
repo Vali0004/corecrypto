@@ -162,4 +162,11 @@ typedef struct cc_iovec {
     size_t nbytes;
 } cc_iovec_t;
 
+#ifndef CC_MIN
+#define CC_MIN(x, y) (((x) < (y)) ? (x) : (y))
+#endif
+#ifndef CC_MAX
+#define CC_MAX(x, y) (((x) > (y)) ? (x) : (y))
+#endif
+
 #endif /* __CORECRYPTO_CC_H__ */

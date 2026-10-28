@@ -245,6 +245,15 @@ CC_INLINE CC_CONST uint32_t cc_clz64(uint32_t w)
     #error we need a fallback for clzll
 #endif
 
+// upper-case spellings the shipped interface headers use
+#define CC_STORE32_BE(x, y) cc_store32_be((uint32_t)(x), (y))
+#define CC_STORE32_LE(x, y) cc_store32_le((uint32_t)(x), (y))
+#define CC_STORE64_BE(x, y) cc_store64_be((uint64_t)(x), (y))
+#define CC_LOAD32_BE(x, y)  cc_load32_be(x, y)
+#define CC_LOAD32_LE(x, y)  cc_load32_le(x, y)
+#define CC_LOAD64_BE(x, y)  cc_load64_be(x, y)
+#define CC_BITLEN_TO_BYTELEN(x) (((x) + 7) / 8)
+
 #define cc_byte(x, n) (((x) >> (8 * (n))) & 255)
 
 /* if anyone wants to make these more optimised be my guest */
@@ -257,9 +266,9 @@ CC_INLINE CC_CONST uint32_t cc_clz64(uint32_t w)
     } while(0)
 
 #define cc_load32_be(x, y) do {             \
-        x = (((uint8_t *)y)[0] << 24) |     \
-            (((uint8_t *)y)[1] << 16) |     \
-            (((uint8_t *)y)[2] << 8) |      \
+        x = ((uint32_t)(((const uint8_t *)(y))[0]) << 24) |     \
+            ((uint32_t)(((const uint8_t *)(y))[1]) << 16) |     \
+            ((uint32_t)(((const uint8_t *)(y))[2]) << 8) |      \
             (((uint8_t *)y)[3]);            \
     } while(0)
 
@@ -275,14 +284,14 @@ CC_INLINE CC_CONST uint32_t cc_clz64(uint32_t w)
     } while(0)
 
 #define cc_load64_be(x, y) do {             \
-        x = (((uint8_t *)y)[0] << 56) |     \
-            (((uint8_t *)y)[1] << 48) |     \
-            (((uint8_t *)y)[2] << 40) |     \
-            (((uint8_t *)y)[3] << 32) |     \
-            (((uint8_t *)y)[4] << 24) |     \
-            (((uint8_t *)y)[5] << 16) |     \
-            (((uint8_t *)y)[6] << 8) |      \
-            (((uint8_t *)y)[7]);            \
+        x = ((uint64_t)(((const uint8_t *)(y))[0]) << 56) |     \
+            ((uint64_t)(((const uint8_t *)(y))[1]) << 48) |     \
+            ((uint64_t)(((const uint8_t *)(y))[2]) << 40) |     \
+            ((uint64_t)(((const uint8_t *)(y))[3]) << 32) |     \
+            ((uint64_t)(((const uint8_t *)(y))[4]) << 24) |     \
+            ((uint64_t)(((const uint8_t *)(y))[5]) << 16) |     \
+            ((uint64_t)(((const uint8_t *)(y))[6]) << 8) |      \
+            ((uint64_t)(((const uint8_t *)(y))[7]));            \
     } while(0)
 
 #define cc_store32_le(x, y) do {                            \

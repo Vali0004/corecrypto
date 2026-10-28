@@ -15,8 +15,15 @@
 //      This project needs to be cross-platform.
 //
 
+// jumps to label when the assertion does not hold, as with AssertMacros require()
 #define cc_require(assertion, label)                \
-    if (__builtin_expect(!!(assertion), 0)) {       \
+    if (__builtin_expect(!(assertion), 0)) {        \
+        goto label;                                 \
+    }
+
+#define cc_require_action(assertion, label, action) \
+    if (__builtin_expect(!(assertion), 0)) {        \
+        action;                                     \
         goto label;                                 \
     }
 
