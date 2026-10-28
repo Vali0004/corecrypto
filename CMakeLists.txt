@@ -71,3 +71,11 @@ target_include_directories(cc_boot_post PRIVATE
 target_sources(cc_boot_post PRIVATE
     ${CMAKE_SOURCE_DIR}/cc_boot_post/src/cc_boot_post.c
 )
+
+# pd known-answer tests (interim, see README.md)
+add_executable(cctest_pd)
+target_link_libraries(cctest_pd PRIVATE corecrypto_static)
+foreach(component IN LISTS CORECRYPTO_STATIC_COMPONENTS)
+  target_include_directories(cctest_pd PRIVATE ${CMAKE_SOURCE_DIR}/${component}/include)
+endforeach()
+target_sources(cctest_pd PRIVATE ${CMAKE_SOURCE_DIR}/cctest/pd/pd_kat.c)

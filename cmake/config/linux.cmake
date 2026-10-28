@@ -3,19 +3,32 @@ set(CORECRYPTO_SHARED_COMPONENTS
     ccaes
     ccasn1
     ccblowfish
+    cccast
+    ccchacha20poly1305
     ccdes
     ccdigest
+    ccansikdf
+    cccmac
+    cckprng
     ccdrbg
+    cchkdf
     cchmac
     ccmd2
     ccmd4
     ccmd5
     ccmode
     ccn
+    ccnistkdf
+    ccpad
+    ccpbkdf2
     ccpost
+    ccrc2
+    ccripemd
+    ccrng
     ccrc4
     ccsha1
     ccsha2
+    ccwrap
 )
 
 set(CORECRYPTO_STATIC_COMPONENTS ${CORECRYPTO_SHARED_COMPONENTS})
