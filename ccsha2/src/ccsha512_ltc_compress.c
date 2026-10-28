@@ -19,6 +19,7 @@
  */
 
 #include "ccsha2_internal.h"
+#include <string.h>
 
 /* Various logical functions */
 #define Ch(x,y,z)       (z ^ (x & (y ^ z)))
@@ -40,13 +41,12 @@ void ccsha512_ltc_compress(ccdigest_state_t state, size_t nblocks, const void *d
 
     while (nblocks--) {
         /* copy state into S */
-        for (i = 0; i < 8; i++) {
-            S[i] = ccdigest_u64(state)[i];
-        }
+        // the hmac outer state may sit at a 4-byte offset, so copy bytewise
+        memcpy(S, state, sizeof(S));
 
         /* copy the state into 1024-bits into W[0..15] */
         for (i = 0; i < 16; i++) {
-            cc_load64_le(W[i], buf + (8*i));
+            cc_load64_be(W[i], buf + (8*i)); // message words are big-endian (fips 180-4 3.1)
         }
 
         /* fill W[16..79] */
@@ -88,8 +88,15 @@ void ccsha512_ltc_compress(ccdigest_state_t state, size_t nblocks, const void *d
 #endif
 
         /* feedback */
-        for (i = 0; i < 8; i++) {
-            ccdigest_u64(state)[i] += S[i];
+        {
+            uint64_t T[8];
+            memcpy(T, state, sizeof(T));
+            for (i = 0; i < 8; i++) {
+                T[i] += S[i];
+            }
+            memcpy(state, T, sizeof(T));
         }
+
+        buf += 128;
     }
 }

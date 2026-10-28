@@ -16,8 +16,8 @@ void cchmac_final(const struct ccdigest_info *di,
     /* We've already partially done the opad state earlier, let's finish what we started. */
     ccdigest_final(di, cchmac_digest_ctx(di, ctx), cchmac_data(di, ctx));
     
-    /* Reset the digest context to the state that opad was in. */
-    cchmac_num(di, ctx) = (uint32_t)di->block_size;
+    // outer hash over the inner digest from the opad state (rfc 2104 2)
+    cchmac_num(di, ctx) = (uint32_t)di->output_size;
     cchmac_nbits(di, ctx) = (di->block_size << 3);
     
     ccdigest_copy_state(di, cchmac_istate(di, ctx), cchmac_ostate(di, ctx));

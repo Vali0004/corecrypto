@@ -14,6 +14,10 @@
 
 CC_BEGIN_DECLS
 
+#define MAX_DIGEST_BLOCK_SIZE   128
+#define MAX_DIGEST_STATE_SIZE   64
+#define MAX_DIGEST_OUTPUT_SIZE  64
+
 cc_aligned_struct(8) ccdigest_state;
 
 typedef ccdigest_state *ccdigest_state_t;

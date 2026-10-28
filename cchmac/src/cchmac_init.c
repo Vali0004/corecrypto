@@ -15,22 +15,22 @@ void cchmac_init(const struct ccdigest_info *di,
                  const void *key)
 {
     const uint8_t *_key = (const uint8_t *)key;
-    
-    /* If the key is larger than the block size, we make it so by running the digest. */
+    size_t used = key_length;
+
+    // keys longer than a block are hashed first, then zero-padded to the block (rfc 2104 2)
     if (key_length > di->block_size) {
         ccdigest_init(di, cchmac_digest_ctx(di, ctx));
         ccdigest_update(di, cchmac_digest_ctx(di, ctx), key_length, key);
         ccdigest_final(di, cchmac_digest_ctx(di, ctx), cchmac_data(di, ctx));
-    } else {
+        used = di->output_size;
+    } else if (key_length) {
         cc_memcpy(cchmac_data(di, ctx), _key, key_length);
-        
-        /* Zero-fill the rest of the bytes */
-        for (size_t i = di->block_size; i > key_length; i--) {
-            cchmac_data(di, ctx)[i] = 0x00;
-        }
     }
-    
-    // preconstruct? who let connor detroit in here
+
+    for (size_t i = used; i < di->block_size; i++) {
+        cchmac_data(di, ctx)[i] = 0x00;
+    }
+
     /* After having done the above, we should be able to preconstruct parts of the opad state early. */
     for (size_t i = 0; i < di->block_size; i++) {
         cchmac_data(di, ctx)[i] ^= 0x5C;
