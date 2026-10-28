@@ -14,8 +14,14 @@
 #include <corecrypto/ccblowfish.h>
 #include <corecrypto/cccast.h>
 #include <corecrypto/ccchacha20poly1305.h>
+#include <corecrypto/ccchacha20poly1305_priv.h>
 #include <corecrypto/ccdes.h>
 #include <corecrypto/ccmd5.h>
+#include <corecrypto/ccmode.h>
+#include <corecrypto/ccpad.h>
+#include <corecrypto/cchmac.h>
+#include <corecrypto/ccrng.h>
+#include <corecrypto/cckprng.h>
 #include <corecrypto/ccpost.h>
 #include <corecrypto/ccsha1.h>
 #include <corecrypto/ccsha2.h>
