@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+// pd interim LLM-written code, experimental and not secure: unaudited, unfuzzed, no side-channel review
 
 #include "corecrypto/cc.h"
 #include "corecrypto/ccmode.h"
@@ -14,53 +15,42 @@
 #include <corecrypto/ccmode_internal.h>
 #include <corecrypto/ccn.h>
 
-struct bcc_chain_ctx {
-    struct ccmode_cbc *cbc_info;
-
-};
-
 #define MAX_DF_TEMP_SIZE    (CCAES_KEY_SIZE_256 + CCAES_BLOCK_SIZE)
 #define MAX_DF_BLOCK_SIZE   (CCAES_BLOCK_SIZE)
 
-static cc_error_t
-ccdrbg_df_bc_update_bcc_chain(const ccdrbg_df_bc_ctx_t *ctx,
-                              const cccbc_ctx *cbc_ctx,
-                              cccbc_iv *cbc_iv,
-                              uint8_t *block,
-                              size_t *bytes_processed,
-                              const void *in, size_t nbytes)
+// bcc state: the chaining value lives in the iv, partial input waits in buf
+struct bcc_state {
+    const ccdrbg_df_bc_ctx_t *df;
+    cccbc_iv *iv;
+    uint8_t buf[MAX_DF_BLOCK_SIZE];
+    uint8_t out[MAX_DF_BLOCK_SIZE];
+    size_t used;
+};
+
+static cc_error_t bcc_absorb(struct bcc_state *st, const void *in, size_t nbytes)
 {
-    size_t block_size = cccbc_block_size(ctx->cbc);
-    cc_error_t err = CCERR_OK;
+    size_t bs = cccbc_block_size(st->df->cbc);
+    const uint8_t *p = in;
+    cc_error_t err;
 
-    size_t want = (block_size - *bytes_processed);
-    const uint8_t *_in = (const uint8_t *)in;
+    while (nbytes) {
+        size_t take = bs - st->used;
+        if (take > nbytes) take = nbytes;
+        cc_copy(take, st->buf + st->used, p);
+        st->used += take;
+        p += take;
+        nbytes -= take;
 
-    if (*bytes_processed && nbytes >= want) {
-        cc_copy(want, block+*bytes_processed, _in);
-        err = cccbc_update(ctx->cbc, cbc_ctx, cbc_iv, 1, block, block);
-        if (err) {
-            return err;
+        if (st->used == bs) {
+            err = cccbc_update(st->df->cbc, st->df->cbc_ctx, st->iv, 1, st->buf, st->out);
+            if (err) return err;
+            st->used = 0;
         }
-        nbytes -= want;
-        _in += want;
-        *bytes_processed = 0;
     }
-
-    while (nbytes >= block_size) {
-        cccbc_update(ctx->cbc, cbc_ctx, cbc_iv, 1, _in, block);
-        nbytes -= block_size;
-        _in += block_size;
-    }
-
-    if (nbytes > 0) {
-        cc_copy(nbytes, block+*bytes_processed, _in);
-        *bytes_processed += nbytes;
-    }
-
-    return err;
+    return CCERR_OK;
 }
 
+// block_cipher_df: bcc over iv || l || n || input || 0x80 || 0*, then expand under the new key (sp 800-90a 10.3.2, 10.3.3)
 cc_error_t ccdrbg_df_bc_derive_keys(const ccdrbg_df_ctx_t *ctx,
                                  size_t nvec,
                                  const cc_iovec_t *iovecs,
@@ -68,96 +58,70 @@ cc_error_t ccdrbg_df_bc_derive_keys(const ccdrbg_df_ctx_t *ctx,
                                  void *keys)
 {
     const ccdrbg_df_bc_ctx_t *df_ctx = (const ccdrbg_df_bc_ctx_t *)ctx;
-    cc_error_t err = CCERR_OK;
-    size_t total_input_nbytes = 0;
-    cccbc_ctx_decl(cccbc_context_size(df_ctx->cbc), cbc_ctx);
-    cccbc_iv_decl(cccbc_block_size(df_ctx->cbc), cbc_iv);
-    uint32_t prefix[6] = {0,0,0,0,0,0};
-    const uint8_t suffix[MAX_DF_BLOCK_SIZE] = { 0x80 };
-    size_t suffix_nbytes = 0;
+    size_t bs = cccbc_block_size(df_ctx->cbc);
+    size_t total = 0;
     uint8_t temp[MAX_DF_TEMP_SIZE];
-    size_t temp_nbytes_need = df_ctx->key_nbytes + cccbc_block_size(df_ctx->cbc);
-    size_t temp_nbytes = 0;
-    uint8_t block[MAX_DF_BLOCK_SIZE];
+    size_t temp_need = df_ctx->key_nbytes + bs;
     uint8_t *kp = keys;
-    void *x = temp + df_ctx->key_nbytes;
-    size_t i = 0;
+    cc_error_t err = CCERR_OK;
+    cccbc_ctx_decl(cccbc_context_size(df_ctx->cbc), cbc_ctx);
+    cccbc_iv_decl(bs, cbc_iv);
 
-    prefix[5] = cc_h2be32((uint32_t)key_nbytes); 
+    if (bs != MAX_DF_BLOCK_SIZE || temp_need > sizeof(temp)) return CCERR_PARAMETER;
 
     for (size_t v = 0; v < nvec; v++) {
-        total_input_nbytes += iovecs[v].nbytes;
+        total += iovecs[v].nbytes;
     }
 
-    prefix[4] = cc_h2be32((uint32_t)total_input_nbytes);
-    suffix_nbytes = cccbc_block_size(df_ctx->cbc) - ((sizeof(prefix) + total_input_nbytes) % cccbc_block_size(df_ctx->cbc));
+    uint8_t ln[8];
+    cc_store32_be((uint32_t)total, ln);
+    cc_store32_be((uint32_t)key_nbytes, ln + 4);
+    size_t pad = bs - ((8 + total + 1) % bs);
+    if (pad == bs) pad = 0;
+    static const uint8_t tail[1 + MAX_DF_BLOCK_SIZE] = { 0x80 };
 
+    for (uint32_t i = 0; i * bs < temp_need; i++) {
+        struct bcc_state st = { .df = df_ctx, .iv = cbc_iv, .used = 0 };
+        uint8_t ivblk[MAX_DF_BLOCK_SIZE] = { 0 };
+        cc_store32_be(i, ivblk);
 
-    while (temp_nbytes < temp_nbytes_need) {
-        cccbc_iv_clear(cccbc_block_size(df_ctx->cbc), cbc_iv);
-        uint8_t *p = temp + temp_nbytes;
-        size_t left = 0;
-        prefix[0] = cc_h2be32((uint32_t)i);
-
-        err = ccdrbg_df_bc_update_bcc_chain(df_ctx,
-                     df_ctx->cbc_ctx,
-                     cbc_iv,
-                     p,
-                     &left,
-                     prefix,
-                     sizeof(prefix));
-        if (err) {
-            return err;
+        cccbc_iv_clear(bs, cbc_iv);
+        err = bcc_absorb(&st, ivblk, bs);
+        if (err == 0) err = bcc_absorb(&st, ln, sizeof(ln));
+        for (size_t j = 0; err == 0 && j < nvec; j++) {
+            err = bcc_absorb(&st, iovecs[j].base, iovecs[j].nbytes);
         }
+        if (err == 0) err = bcc_absorb(&st, tail, 1 + pad);
+        if (err) goto out;
 
-        for (size_t j = 0; j < nvec; j++) {
-            err = ccdrbg_df_bc_update_bcc_chain(df_ctx,
-                     df_ctx->cbc_ctx,
-                     cbc_iv,
-                     p,
-                     &left,
-                     iovecs[j].base,
-                     iovecs[j].nbytes);
-            if (err) {
-                return err;
-            }
-        }
-
-        err = ccdrbg_df_bc_update_bcc_chain(df_ctx,
-                     df_ctx->cbc_ctx,
-                     cbc_iv,
-                     p,
-                     &left,
-                     suffix,
-                     suffix_nbytes);
-        if (err) {
-            return err;
-        }
-
-        i++;
-        temp_nbytes += cccbc_block_size(df_ctx->cbc);
+        size_t take = temp_need - i * bs < bs ? temp_need - i * bs : bs;
+        cc_copy(take, temp + i * bs, st.out);
+        cc_clear(sizeof(st.buf), st.buf);
+        cc_clear(sizeof(st.out), st.out);
     }
 
-    cccbc_init(df_ctx->cbc, cbc_ctx, df_ctx->key_nbytes, temp);
+    // k = leftmost keylen of temp, x = the next block, then x = e(k, x) repeatedly
+    err = cccbc_init(df_ctx->cbc, cbc_ctx, df_ctx->key_nbytes, temp);
+    if (err) goto out;
+
+    uint8_t x[MAX_DF_BLOCK_SIZE];
+    cc_copy(bs, x, temp + df_ctx->key_nbytes);
     while (key_nbytes > 0) {
-        cccbc_iv_clear(cccbc_block_size(df_ctx->cbc), cbc_iv);
-
-        uint8_t *p = (key_nbytes >= cccbc_block_size(df_ctx->cbc)) ? kp : block;
-        err = cccbc_update(df_ctx->cbc, cbc_ctx, cbc_iv, 1, x, p);
-
-        if (key_nbytes < cccbc_block_size(df_ctx->cbc)) {
-            cc_memcpy(kp, p, key_nbytes);
-        }
-
-        x = p;
-        kp += cc_min(key_nbytes, (size_t)cccbc_block_size(df_ctx->cbc));
-        key_nbytes -= cc_min(key_nbytes, (size_t)cccbc_block_size(df_ctx->cbc));
+        cccbc_iv_clear(bs, cbc_iv);
+        err = cccbc_update(df_ctx->cbc, cbc_ctx, cbc_iv, 1, x, x);
+        if (err) break;
+        size_t take = key_nbytes < bs ? key_nbytes : bs;
+        cc_copy(take, kp, x);
+        kp += take;
+        key_nbytes -= take;
     }
+    cc_clear(sizeof(x), x);
 
-    cccbc_ctx_clear(df_ctx->cbc->size, cbc_ctx);
-    cccbc_iv_clear(df_ctx->cbc->block_size, cbc_iv);
-
-    return CCERR_OK;
+out:
+    cc_clear(sizeof(temp), temp);
+    cccbc_ctx_clear(cccbc_context_size(df_ctx->cbc), cbc_ctx);
+    cccbc_iv_clear(bs, cbc_iv);
+    return err;
 }
 
 cc_error_t ccdrbg_df_bc_init(ccdrbg_df_bc_ctx_t *ctx, const struct ccmode_cbc *cbc, size_t key_nbytes)

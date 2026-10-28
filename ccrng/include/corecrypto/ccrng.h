@@ -22,6 +22,8 @@ struct ccrng_state {
 CC_EXPORT
 struct ccrng_state *ccrng(cc_error_t *error);
 
+CC_EXPORT int ccrng_uniform(struct ccrng_state *rng, uint64_t bound, uint64_t *rand);
+
 #define ccrng_generate(rng, out_length, out)                            \
     ((rng)->generate((struct ccrng_state *)(rng), (out_length), (out)))
 

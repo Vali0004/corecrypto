@@ -5,155 +5,246 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+// pd interim LLM-written code, experimental and not secure: unaudited, unfuzzed, no side-channel review
 
-#include "corecrypto/cc_absolute_time.h"
-#include <corecrypto/cc_debug.h>
+#include <corecrypto/cc_priv.h>
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccdrbg.h>
 #include <corecrypto/ccrng.h>
-#include <corecrypto/cc_lock.h>
-
-/*
- * NOTE: This is not finished! This is the groundwork for the global RNG once the CTR DRBG is finalised.
- */
-
-//
-//  THIS WILL UNDERGO SEVERE RENOVATION SOON I PROMISE.
-//
-
-#if CC_PLATFORM_DARWIN && CC_SHARED_LIBRARY
-//
-// libSystem will call various functions.
-//
-// These handle prediction resistance, which we DO NOT do yet.
-//
-#define LIBSYSTEM_CALLS_FORK_FUNCTIONS  1
-#else
-#define LIBSYSTEM_CALLS_FORK_FUNCTIONS  0
-#endif
-
-static
-cc_error_t ccrng_crypto_getentropy(size_t nbytes, void *buffer);
+#include <corecrypto/ccrng_system.h>
 
 #if CC_PLATFORM_XNU
 
 #include <sys/random.h>
-#include <sys/types.h>
-#include <machine/limits.h>
 
-cc_error_t ccrng_crypto_getentropy(size_t nbytes, void *buffer)
+// the kernel's read_random is already backed by the registered kprng
+static cc_error_t ccrng_kernel_generate(struct ccrng_state *state, size_t nbytes, void *out)
 {
-    cc_internal_crash(nbytes > UINT_MAX, "getentropy nbytes > UINT_MAX");
-    read_random(buffer, (u_int)nbytes);
+    uint8_t *p = out;
+    (void)state;
+
+    while (nbytes) {
+        u_int take = nbytes > 0x10000 ? 0x10000 : (u_int)nbytes;
+        read_random(p, take);
+        p += take;
+        nbytes -= take;
+    }
     return CCERR_OK;
 }
 
-#elif CC_PLATFORM_LINUX || CC_PLATFORM_DARWIN
+static struct ccrng_state ccrng_kernel_state = { .generate = &ccrng_kernel_generate };
 
-#include <sys/random.h>
-
-cc_error_t ccrng_crypto_getentropy(size_t nbytes, void *buffer)
+struct ccrng_state *ccrng(cc_error_t *err)
 {
-    cc_internal_crash(nbytes > 256, "getentropy nbytes > 256");
-    return getentropy(buffer, nbytes);
+    if (err) *err = CCERR_OK;
+    return &ccrng_kernel_state;
+}
+
+#else
+
+#include <unistd.h>
+#include <sys/random.h>
+#if CC_PLATFORM_DARWIN
+#include <os/lock.h>
+#else
+#include <pthread.h>
+#endif
+
+// ctr_drbg with aes-256 and a derivation function, seeded from getentropy (sp 800-90a 10.2.1)
+struct ccrng_crypto_rng {
+    bool did_init;
+    pid_t pid;
+#if CC_PLATFORM_DARWIN
+    os_unfair_lock lock;
+#else
+    pthread_mutex_t lock;
+#endif
+    struct ccdrbg_info drbg_info;
+    struct ccdrbg_nistctr_custom drbg_custom;
+    struct ccdrbg_df_bc_ctx drbg_df_bc_ctx;
+    uint64_t drbg_state_buffer[256];
+    struct ccdrbg_state *drbg_state;
+    struct ccrng_state rng_state;
+};
+
+static cc_error_t ccrng_crypto_rng_generate(struct ccrng_state *state, size_t nbytes, void *out);
+
+static struct ccrng_crypto_rng ccrng_global = {
+    .did_init = false,
+#if CC_PLATFORM_DARWIN
+    .lock = OS_UNFAIR_LOCK_INIT,
+#else
+    .lock = PTHREAD_MUTEX_INITIALIZER,
+#endif
+    .rng_state = { .generate = &ccrng_crypto_rng_generate },
+};
+
+static void rng_lock(void)
+{
+#if CC_PLATFORM_DARWIN
+    os_unfair_lock_lock(&ccrng_global.lock);
+#else
+    pthread_mutex_lock(&ccrng_global.lock);
+#endif
+}
+
+static void rng_unlock(void)
+{
+#if CC_PLATFORM_DARWIN
+    os_unfair_lock_unlock(&ccrng_global.lock);
+#else
+    pthread_mutex_unlock(&ccrng_global.lock);
+#endif
+}
+
+static cc_error_t rng_entropy(size_t nbytes, void *buf)
+{
+    // getentropy hands out at most 256 bytes per call
+    uint8_t *p = buf;
+    while (nbytes) {
+        size_t take = nbytes > 256 ? 256 : nbytes;
+        if (getentropy(p, take) != 0) return CCERR_OUT_OF_ENTROPY;
+        p += take;
+        nbytes -= take;
+    }
+    return CCERR_OK;
+}
+
+// instantiate, and instantiate again in a forked child so it never repeats the parent's stream
+static cc_error_t rng_seed_locked(void)
+{
+    uint8_t entropy[48], nonce[16];
+    pid_t pid = getpid();
+    cc_error_t err;
+
+    if (ccrng_global.did_init && ccrng_global.pid == pid) return CCERR_OK;
+
+    if (!ccrng_global.did_init) {
+        err = ccdrbg_df_bc_init(&ccrng_global.drbg_df_bc_ctx, ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_256);
+        if (err) return err;
+
+        ccrng_global.drbg_custom.ctr = ccaes_ctr_crypt_mode();
+        ccrng_global.drbg_custom.key_length = CCAES_KEY_SIZE_256;
+        ccrng_global.drbg_custom.strictFIPS = true;
+        ccrng_global.drbg_custom.df_ctx = (ccdrbg_df_ctx_t *)&ccrng_global.drbg_df_bc_ctx;
+        ccdrbg_factory_nistctr(&ccrng_global.drbg_info, &ccrng_global.drbg_custom);
+
+        if (ccrng_global.drbg_info.size == 0 || ccrng_global.drbg_info.size > sizeof(ccrng_global.drbg_state_buffer)) {
+            return CCERR_INTERNAL;
+        }
+        ccrng_global.drbg_state = (struct ccdrbg_state *)ccrng_global.drbg_state_buffer;
+    }
+
+    err = rng_entropy(sizeof(entropy), entropy);
+    if (err == 0) err = rng_entropy(sizeof(nonce), nonce);
+    if (err == 0) {
+        err = ccdrbg_init(&ccrng_global.drbg_info, ccrng_global.drbg_state,
+                          sizeof(entropy), entropy, sizeof(nonce), nonce,
+                          sizeof("corecrypto rng") - 1, "corecrypto rng");
+    }
+
+    cc_clear(sizeof(entropy), entropy);
+    cc_clear(sizeof(nonce), nonce);
+    if (err) return err;
+
+    ccrng_global.pid = pid;
+    ccrng_global.did_init = true;
+    return CCERR_OK;
+}
+
+static cc_error_t rng_reseed_locked(void)
+{
+    uint8_t entropy[48];
+    cc_error_t err = rng_entropy(sizeof(entropy), entropy);
+    if (err == 0) err = ccdrbg_reseed(&ccrng_global.drbg_info, ccrng_global.drbg_state, sizeof(entropy), entropy, 0, NULL);
+    cc_clear(sizeof(entropy), entropy);
+    return err;
+}
+
+static cc_error_t ccrng_crypto_rng_generate(struct ccrng_state *state, size_t nbytes, void *out)
+{
+    uint8_t *p = out;
+    cc_error_t err;
+    (void)state;
+
+    rng_lock();
+    err = rng_seed_locked();
+
+    while (err == CCERR_OK && nbytes) {
+        // stay well under the per-request limit (sp 800-90a table 3)
+        size_t take = nbytes > 4096 ? 4096 : nbytes;
+
+        err = ccdrbg_generate(&ccrng_global.drbg_info, ccrng_global.drbg_state, take, p, 0, NULL);
+        if (err == CCDRBG_STATUS_NEED_RESEED) {
+            err = rng_reseed_locked();
+            continue;
+        }
+        p += take;
+        nbytes -= take;
+    }
+    rng_unlock();
+
+    if (err) cc_clear(nbytes, p);
+    return err;
+}
+
+struct ccrng_state *ccrng(cc_error_t *err)
+{
+    cc_error_t rc;
+
+    rng_lock();
+    rc = rng_seed_locked();
+    rng_unlock();
+
+    if (err) *err = rc;
+    return rc ? NULL : &ccrng_global.rng_state;
 }
 
 #endif
 
-static
-cc_error_t ccrng_crypto_rng_generate(struct ccrng_state *state, size_t nbytes, void *out);
+// draw from [0, bound) by masking to the next power of two and rejecting (no modulo bias)
+int ccrng_uniform(struct ccrng_state *rng, uint64_t bound, uint64_t *rand)
+{
+    if (bound == 0) return CCERR_PARAMETER;
 
-#define CCRNG_SYSTEM_RNG_MAGIC 0xCC524E47
+    uint64_t mask = bound - 1;
+    mask |= mask >> 1;
+    mask |= mask >> 2;
+    mask |= mask >> 4;
+    mask |= mask >> 8;
+    mask |= mask >> 16;
+    mask |= mask >> 32;
 
-struct ccrng_crypto_rng {
-    uint32_t magic;
-    bool did_init;
-    bool prediction_break;
-    cc_lock_t rng_lock;
-    struct ccdrbg_info drbg_info;
-    struct ccdrbg_nistctr_custom drbg_custom;
-    struct ccdrbg_df_bc_ctx drbg_df_bc_ctx;
-
-    uint8_t drbg_state_buffer[1300];
-    
-    struct ccdrbg_state *drbg_state;
-    
-    struct ccrng_state rng_state;
-};
-
-static struct ccrng_crypto_rng __rng = {CCRNG_SYSTEM_RNG_MAGIC, false};
-
-//
-// !!!TEMPORARY!!!
-//
-static const uint8_t df_pr_entropy[] = "\x53\x43\x46\xa3\xe0\xba\xa6\x5d\x7a\x51\x87\x1b\x6d\x63\x3a\x6f\x1e\xfa\x9f\xf5\x5d\xfd\xe3\x21\x2c\x95\x02\x9a\xdf\x23\x87\xd9";
-
-cc_error_t ccrng_crypto_rng_init_once(void) {
-    cc_error_t err = CCERR_OK;
-    
-    if (__rng.did_init) {
-        return CCERR_OK;
+    for (int tries = 0; tries < 256; tries++) {
+        uint64_t v;
+        int rc = ccrng_generate(rng, sizeof(v), &v);
+        if (rc) return rc;
+        v &= mask;
+        if (v < bound) {
+            *rand = v;
+            return CCERR_OK;
+        }
     }
-    
-    /* It's probably safer to abort here than not. */
-    cc_internal_crash(__rng.magic == CCRNG_SYSTEM_RNG_MAGIC, "ccrng_crypto_rng: internal RNG structure is bad.");
-    
-    err = ccdrbg_df_bc_init(&__rng.drbg_df_bc_ctx, ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_256);
-    cc_internal_crash(err != CCERR_OK, "ccdrbg_df_bc_init failed.");
-    
-    __rng.drbg_custom.ctr = ccaes_ctr_crypt_mode();
-    __rng.drbg_custom.key_length = CCAES_KEY_SIZE_256;
-    // --- this will only work on one thread for so long... --- //
-    __rng.drbg_custom.strictFIPS = true;
-    __rng.drbg_custom.df_ctx = (ccdrbg_df_ctx_t *)&__rng.drbg_df_bc_ctx;
+    return CCERR_INTERNAL;
+}
 
-    /* create a lock. we'll need it. */
-    cc_lock_init(&__rng.rng_lock, "ccrng");
-    
-    __rng.drbg_state = (struct ccdrbg_state *)&__rng.drbg_state_buffer[0];
+static int ccrng_system_generate(struct ccrng_state *rng, size_t outlen, void *out)
+{
+    cc_error_t err;
+    struct ccrng_state *global = ccrng(&err);
+    (void)rng;
+    if (global == NULL) return err;
+    return ccrng_generate(global, outlen, out);
+}
 
-    ccdrbg_factory_nistctr(&__rng.drbg_info, &__rng.drbg_custom);
-    cc_internal_crash(__rng.drbg_info.size == 0, "DRBG did not instantiate correctly");
-    cc_internal_crash(__rng.drbg_info.size > sizeof(__rng.drbg_state_buffer), "DRBG is too large for our buffer. This is not good.");
-    
-    //  we use the timestamp as a nonce.
-    uint64_t now = cc_absolute_time();
-
-    err = ccdrbg_init(&__rng.drbg_info, __rng.drbg_state,
-                      sizeof(df_pr_entropy)-1, df_pr_entropy,
-                      sizeof(now), &now,
-                      sizeof("corecrypto rng")-1, "corecrypto rng");
-
-    cc_internal_crash(err != CCERR_OK, "ccdrbg_init failed.");
-
-    __rng.rng_state.generate = &ccrng_crypto_rng_generate;
-    
-    __rng.did_init = true;
-    
+int ccrng_system_init(struct ccrng_system_state *rng)
+{
+    rng->generate = &ccrng_system_generate;
+    rng->fd = -1;
     return CCERR_OK;
 }
 
-static
-cc_error_t ccrng_crypto_rng_generate(struct ccrng_state *state, size_t nbytes, void *out)
+void ccrng_system_done(struct ccrng_system_state *rng)
 {
-    cc_lock_lock(&__rng.rng_lock);
-    
-    //
-    // TODO: !!!PREDICTION RESISTANCE!!!
-    //
-    ccdrbg_generate(&__rng.drbg_info, __rng.drbg_state, nbytes, out, 0, NULL);
-    
-    cc_lock_unlock(&__rng.rng_lock);
-    
-    return CCERR_OK;
-}
-
-//
-// !!!TEMPORARY!!! !!!WE SHOULD USE ACTUAL MULTITHREADING LIBRARIES SOON!!!
-//
-struct ccrng_state *
-ccrng(cc_error_t *err)
-{
-    ccrng_crypto_rng_init_once();
-    return &__rng.rng_state;
+    rng->fd = -1;
 }

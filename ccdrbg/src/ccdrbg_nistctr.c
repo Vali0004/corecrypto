@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+// pd interim LLM-written code, experimental and not secure: unaudited, unfuzzed, no side-channel review
 
 #include "corecrypto/cc.h"
 #include "corecrypto/cc_debug.h"
@@ -226,13 +227,13 @@ ccdrbg_status_t ccdrbg_nistctr_init(const struct ccdrbg_info *info,
             return res;
         }
     } else {
+        // without a df the seed material is entropy xor the padded personalisation string (sp 800-90a 10.2.1.3.1)
         cc_clear(MAX_SEED_SIZE, seed_material);
+        if (entropy_length > sizeof(seed_material) || ps_length > sizeof(seed_material)) {
+            return CCDRBG_STATUS_PARAM_ERROR;
+        }
+        cc_copy(entropy_length, seed_material, entropy);
         if (ps && ps_length) {
-            if (ps_length > sizeof(seed_material)) {
-                return CCDRBG_STATUS_PARAM_ERROR;
-            }
-
-            cc_copy(entropy_length, seed_material, entropy);
             cc_xor(ps_length, seed_material, seed_material, ps);
         }
     }
@@ -282,14 +283,14 @@ ccdrbg_status_t ccdrbg_nistctr_reseed(struct ccdrbg_state *state,
             return stat;
         }
     } else {
+        // seed material is entropy xor the padded additional input (sp 800-90a 10.2.1.4.1)
         cc_clear(MAX_SEED_SIZE, seed_material);
+        if (entropy_length > sizeof(seed_material) || ad_length > sizeof(seed_material)) {
+            return CCDRBG_STATUS_PARAM_ERROR;
+        }
+        cc_copy(entropy_length, seed_material, entropy);
         if (ad && ad_length) {
-            if (ad_length > sizeof(seed_material)) {
-                return CCDRBG_STATUS_PARAM_ERROR;
-            }
-
-            cc_copy(ad_length, seed_material, ad);
-            cc_xor(DRBG_STATE_SEEDLEN(state), seed_material, seed_material, entropy);
+            cc_xor(ad_length, seed_material, seed_material, ad);
         }
     }
 
@@ -374,11 +375,11 @@ ccdrbg_status_t ccdrbg_nistctr_generate(struct ccdrbg_state *state,
         _out += nbytes;
     }
 
-    size_t leftover = (DRBG_STATE_OUTLEN(state) - out_length);
-    /* check that leftover < outlen because we can end up here aligned on a block */
-    if (leftover < DRBG_STATE_OUTLEN(state)) {
-        ccctr_update(DRBG_STATE_CTR_MODE(state), ctr, leftover, zeroes, leftover_out);
-        cc_clear(leftover, leftover_out);
+    // a short tail takes the leftmost bytes of one more whole block (sp 800-90a 10.2.1.5.1 step 4-5)
+    if (out_length) {
+        ccctr_update(DRBG_STATE_CTR_MODE(state), ctr, DRBG_STATE_OUTLEN(state), zeroes, leftover_out);
+        cc_copy(out_length, _out, leftover_out);
+        cc_clear(sizeof(leftover_out), leftover_out);
     }
 
     const uint8_t *dat;
