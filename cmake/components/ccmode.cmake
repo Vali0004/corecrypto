@@ -31,4 +31,16 @@ set(CORECRYPTO_ccmode_SOURCES
     ecb/ccecb_init.c
     ecb/ccecb_one_shot.c
     ecb/ccecb_update.c
+    cfb/ccmode_cfb.c
+    ofb/ccmode_ofb.c
+    gcm/ccmode_gcm.c
+    gcm/ccmode_gcm_gf_mult.c
+    ccm/ccmode_ccm.c
+    xts/ccxts.c
+    xts/ccmode_factory_xts_decrypt.c
+    xts/ccmode_factory_xts_encrypt.c
+    xts/ccmode_xts_crypt.c
+    xts/ccmode_xts_init.c
+    xts/ccmode_xts_key_sched.c
+    xts/ccmode_xts_set_tweak.c
 )

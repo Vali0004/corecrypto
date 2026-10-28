@@ -34,8 +34,10 @@ cc_error_t ccmode_cbc_encrypt(const cccbc_ctx *ctx, cccbc_iv *iv, size_t nblocks
         }
     }
 
-    /* update the iv */
-    cc_copy(block_size, iv, _out);
+    // the chaining value is the last ciphertext block (sp 800-38a 6.2)
+    if (_iv != (uint8_t *)iv) {
+        cc_copy(block_size, iv, _iv);
+    }
 
     return err;
 }

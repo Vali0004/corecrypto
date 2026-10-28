@@ -19,7 +19,8 @@ cc_error_t ccmode_xts_key_sched(const struct ccmode_xts *xts,
     
     // I... believe this is a requirement? Somewhere?
     int keys_same = cc_cmp_safe(key_size, data_key, tweak_key);
-    cc_debug_client_abort(keys_same != 0, "ccmode_xts_key_sched: WTF? Keys are equal. API misuse.", CCERR_PARAMETER);
+    // the two halves must differ (sp 800-38e 5.1)
+    cc_debug_client_abort(keys_same == 0, "ccmode_xts_key_sched: data and tweak keys are equal", CCERR_PARAMETER);
 
     // erase contexts after fail?
     err = ccecb_init(CCMODE_XTS_KEY_ECB_MODE(ctx), CCMODE_XTS_KEY_ECB_CTX(ctx), key_size, data_key);

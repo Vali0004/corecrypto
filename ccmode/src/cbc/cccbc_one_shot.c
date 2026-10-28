@@ -23,7 +23,7 @@ cc_error_t cccbc_one_shot(const struct ccmode_cbc *cbc, size_t key_length, const
         }
     }
 
-    cccbc_iv_clear(cbc->size, iv_ctx);
-    cccbc_ctx_clear(cbc->block_size, ctx);
+    cccbc_iv_clear(cbc->block_size, iv_ctx);
+    cccbc_ctx_clear(cbc->size, ctx);
     return err;
 }
