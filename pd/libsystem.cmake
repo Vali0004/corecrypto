@@ -21,10 +21,5 @@ add_darwin_static_library(corecrypto_static)
 target_sources(corecrypto_static PRIVATE $<TARGET_OBJECTS:corecrypto_shared>)
 target_include_directories(corecrypto_static BEFORE PUBLIC ${PD_CORECRYPTO_INCLUDE_DIRS})
 
-# native build for host tools (in-tree ld64), the library is portable C
-add_library(host_corecrypto_static STATIC ${_pd_cc_user_sources})
-target_include_directories(host_corecrypto_static BEFORE PUBLIC ${PD_CORECRYPTO_INCLUDE_DIRS})
-add_library(host_corecrypto_headers INTERFACE)
-target_include_directories(host_corecrypto_headers INTERFACE ${PD_CORECRYPTO_INCLUDE_DIRS})
-add_library(host_corecrypto_private_headers INTERFACE)
-target_include_directories(host_corecrypto_private_headers INTERFACE ${PD_CORECRYPTO_INCLUDE_DIRS})
+# native build for host tools (in-tree ld64), see host-static.cmake
+include(${CMAKE_CURRENT_LIST_DIR}/host-static.cmake)

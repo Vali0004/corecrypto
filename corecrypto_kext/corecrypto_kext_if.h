@@ -23,6 +23,7 @@
 #include <corecrypto/ccrng.h>
 #include <corecrypto/cckprng.h>
 #include <corecrypto/ccpost.h>
+#include <corecrypto/ccrsa.h>
 #include <corecrypto/ccsha1.h>
 #include <corecrypto/ccsha2.h>
 #include <mach/mach_types.h>

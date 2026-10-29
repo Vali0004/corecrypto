@@ -26,9 +26,11 @@ set(CORECRYPTO_SHARED_COMPONENTS
     ccripemd
     ccrng
     ccrc4
+    ccrsa
     ccsha1
     ccsha2
     ccwrap
+    cczp
 )
 
 set(CORECRYPTO_STATIC_COMPONENTS ${CORECRYPTO_SHARED_COMPONENTS})

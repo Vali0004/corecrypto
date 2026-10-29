@@ -6,26 +6,23 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+// pd: carries without a double unit, the old loop dropped the carry out of s[i] + t[i]
+
 #include <corecrypto/ccn.h>
 
-/* ccn_add is supposed to return the carried bits. */
+// r = s + t, returns the carry out of the top unit
 cc_unit ccn_add(cc_size n, cc_unit *r, const cc_unit *s, const cc_unit *t)
 {
-
-/* On 64-bit without double units, it gets hard. */
-#if CC_UNIT_ALLOW_UINT128_DUNIT || (CC_UNIT_SIZE == 4)
-    cc_dunit carry = 0;
+    cc_unit carry = 0;
 
     for (cc_size i = 0; i < n; i++) {
-        carry += s[i] + t[i];
-
-        r[i] = (cc_unit)carry;
-
-        carry >>= CC_UNIT_BITS;
+        cc_unit a = s[i];
+        cc_unit sum = a + t[i];
+        cc_unit c1 = sum < a;
+        cc_unit out = sum + carry;
+        carry = c1 | (out < sum);
+        r[i] = out;
     }
-#else
-    #error ccn_add has been left without an impl
-#endif
 
-    return (cc_unit)carry;
+    return carry;
 }

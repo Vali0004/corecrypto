@@ -284,9 +284,9 @@ void cc_kernel_populate_registration(void)
     //         remind me to write the XTS implementation for that.
     corecrypto_registration_if.ccrng_fn = &ccrng;
 
-    /* MISSING COMPONENTS: ccrsa_[make_pub, verify_pkcs1v15] */
-
-    // these rsa routines are used for imageboot dmg validation.
+    // these rsa routines are used for imageboot dmg validation (bsd/kern/chunklist.c through libkern/crypto/corecrypto_rsa.c)
+    corecrypto_registration_if.ccrsa_make_pub_fn = &ccrsa_make_pub;
+    corecrypto_registration_if.ccrsa_verify_pkcs1v15_fn = &ccrsa_verify_pkcs1v15;
     
 #if 1 // pd: xnu 12377 always uses the crypto_digest/hmac/random contract
     crypto_digest_algs[CRYPTO_DIGEST_ALG_MD5] = ccmd5_di();

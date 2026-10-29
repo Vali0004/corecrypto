@@ -10,12 +10,12 @@ set(PD_CORECRYPTO_COMPONENTS
     ccdrbg cchkdf cchmac ccmd2 ccmd4 ccmd5 ccmode ccn ccnistkdf ccpad ccpbkdf2
     ccrc2 ccrc4 ccripemd ccrng ccsha1 ccsha2 ccwrap)
 
-# the power-on self tests only run in the kext
-set(PD_CORECRYPTO_KERNEL_COMPONENTS ${PD_CORECRYPTO_COMPONENTS} cckprng ccpost)
+# the power-on self tests only run in the kext, rsa verify (ccrsa over ccn and cczp) is kext-only for now
+set(PD_CORECRYPTO_KERNEL_COMPONENTS ${PD_CORECRYPTO_COMPONENTS} cckprng ccpost ccrsa cczp)
 
 set(PD_CORECRYPTO_INCLUDE_DIRS "")
-# ccrsa and cczp only bring headers, register_crypto.h declares the rsa hooks with their types
-foreach(component IN LISTS PD_CORECRYPTO_KERNEL_COMPONENTS ITEMS ccrsa cczp)
+# register_crypto.h declares the rsa hooks with the ccrsa types, so user space sees these headers too
+foreach(component IN LISTS PD_CORECRYPTO_KERNEL_COMPONENTS)
     list(APPEND PD_CORECRYPTO_INCLUDE_DIRS ${PD_CORECRYPTO_ROOT}/${component}/include)
 endforeach()
 set(PD_CORECRYPTO_INCLUDE_DIRS ${PD_CORECRYPTO_INCLUDE_DIRS} CACHE INTERNAL "corecrypto public headers")

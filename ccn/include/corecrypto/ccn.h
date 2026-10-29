@@ -84,6 +84,34 @@ cc_unit ccn_add(cc_size n, cc_unit *r, const cc_unit *s, const cc_unit *t);
 CC_EXPORT
 cc_unit ccn_sub(cc_size n, cc_unit *r, const cc_unit *s, const cc_unit *t);
 
+// pd: the rest is what rsa public-key verification needs, variable time
+
+// compares s and t, returns -1, 0 or 1
+CC_EXPORT
+int ccn_cmp(cc_size n, const cc_unit *s, const cc_unit *t);
+
+// number of units up to and including the top nonzero one
+CC_EXPORT
+cc_size ccn_n(cc_size n, const cc_unit *s);
+
+// bit length of s, 0 for zero
+CC_EXPORT
+size_t ccn_bitlen(cc_size n, const cc_unit *s);
+
+CC_EXPORT
+void ccn_zero(cc_size n, cc_unit *r);
+
+CC_EXPORT
+void ccn_set(cc_size n, cc_unit *r, const cc_unit *s);
+
+// big-endian bytes to n units, CCERR_PARAMETER when the value does not fit
+CC_EXPORT
+int ccn_read_uint(cc_size n, cc_unit *r, size_t data_nbytes, const uint8_t *data);
+
+// n units to exactly out_nbytes big-endian bytes, CCERR_PARAMETER when the value does not fit
+CC_EXPORT
+int ccn_write_uint_padded(cc_size n, const cc_unit *s, size_t out_nbytes, uint8_t *out);
+
 CC_END_DECLS
 
 #endif /* __CORECRYPTO_CCN_H__  */

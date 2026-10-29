@@ -7,5 +7,6 @@ set(CORECRYPTO_ccpost_SOURCES
     ccpost_aes_ctr_validate.c
     ccpost_aes_ecb_validate.c
     ccpost_ctr_drbg_validate.c
+    ccpost_rsa_verify_validate.c
     ccpost_validate.c
 )

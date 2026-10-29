@@ -39,6 +39,7 @@
 #include <corecrypto/ccrng_system.h>
 #include <corecrypto/cckprng.h>
 #include <corecrypto/ccdrbg.h>
+#include <corecrypto/ccrsa.h>
 
 static const struct ccdigest_info *di_md2(void) { return &ccmd2_di; }
 static const struct ccdigest_info *di_md4(void) { return &ccmd4_di; }
@@ -71,6 +72,10 @@ struct pd_cksum_vec { B(key); B(iv); B(msg); B(mac); };
 struct pd_nistkdf_vec { di_fn di; B(kdk); B(label); B(ctx); B(dk); };
 
 #include "pd_vectors.h"
+
+// rsa vectors are hex strings, expect is 1 valid, 0 invalid, 2 acceptable either way
+struct pd_rsa_vec { const char *name; const char *n; const char *e; di_fn di; const char *digest; const char *sig; int expect; };
+#include "pd_rsa_vectors.h"
 
 #define NVEC(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -621,6 +626,80 @@ static void test_kprng(void)
 
 int ccpost_validate(void);
 
+static size_t unhex(const char *h, uint8_t *out, size_t max)
+{
+    size_t n = strlen(h) / 2;
+    if (n > max) n = max;
+    for (size_t i = 0; i < n; i++) {
+        unsigned b;
+        sscanf(h + 2 * i, "%2x", &b);
+        out[i] = (uint8_t)b;
+    }
+    return n;
+}
+
+// same capacity and setup as xnu's rsa_make_pub in libkern/crypto/corecrypto_rsa.c
+typedef struct { ccrsa_pub_ctx_decl(ccn_sizeof(4096), key); } pd_rsa_pub;
+
+static int rsa_make(pd_rsa_pub *pub, const uint8_t *e, size_t elen, const uint8_t *m, size_t mlen)
+{
+    memset(pub, 0xa5, sizeof(*pub));
+    ccrsa_ctx_n(pub->key) = ccn_nof(4096);
+    return ccrsa_make_pub(pub->key, elen, e, mlen, m);
+}
+
+static void test_rsa(void)
+{
+    static uint8_t n[1024], e[1024], sig[1024], dg[64];
+    size_t acceptable = 0, accepted = 0;
+    pd_rsa_pub pub;
+
+    for (size_t i = 0; i < NVEC(pd_rsa_vecs); i++) {
+        const struct pd_rsa_vec *v = &pd_rsa_vecs[i];
+        size_t nl = unhex(v->n, n, sizeof(n)), el = unhex(v->e, e, sizeof(e));
+        size_t sl = unhex(v->sig, sig, sizeof(sig)), dl = unhex(v->digest, dg, sizeof(dg));
+        bool valid = true;
+
+        if (rsa_make(&pub, e, el, n, nl) != 0) { check(0, "rsa", v->name, i); continue; }
+        int rc = ccrsa_verify_pkcs1v15(pub.key, v->di()->oid, dl, dg, sl, sig, &valid);
+        if (v->expect == 2) {
+            acceptable++;
+            accepted += rc == 0 && valid;
+            continue;
+        }
+        check((rc == 0 && valid) == (v->expect == 1), "rsa", v->name, i);
+    }
+    printf("rsa: %zu acceptable vectors, %zu accepted\n", acceptable, accepted);
+
+    // make_pub rejects what rfc 8017 3.1 rules out
+    static const uint8_t e3[] = { 3 }, e1[] = { 1 }, f4[] = { 1, 0, 1 };
+    uint8_t m[256];
+    memset(m, 0xc3, sizeof(m));
+    check(rsa_make(&pub, f4, 3, m, sizeof(m)) == 0, "rsa", "make_pub odd modulus", 0);
+    check(ccrsa_ctx_n(pub.key) == ccn_nof(2048) && pub.key->bitlen == 2048, "rsa", "make_pub n and bitlen", 0);
+    check(rsa_make(&pub, e1, 1, m, sizeof(m)) != 0, "rsa", "make_pub e = 1", 0);
+    check(rsa_make(&pub, m, sizeof(m), m, sizeof(m)) != 0, "rsa", "make_pub e = m", 0);
+    m[255] = 0xc2;
+    check(rsa_make(&pub, e3, 1, m, sizeof(m)) != 0, "rsa", "make_pub even modulus", 0);
+    static uint8_t big[513];
+    memset(big, 0xff, sizeof(big));
+    check(rsa_make(&pub, f4, 3, big, sizeof(big)) != 0, "rsa", "make_pub 4104-bit modulus", 0);
+
+    // a bare digest without an oid (rfc 4346 md5 || sha1) is encoded as T = digest
+    for (size_t i = 0; i < NVEC(pd_rsa_nulloid_vecs); i++) {
+        const struct pd_rsa_vec *v = &pd_rsa_nulloid_vecs[i];
+        size_t nl = unhex(v->n, n, sizeof(n)), el = unhex(v->e, e, sizeof(e));
+        size_t sl = unhex(v->sig, sig, sizeof(sig)), dl = unhex(v->digest, dg, sizeof(dg));
+        bool valid = false;
+
+        check(rsa_make(&pub, e, el, n, nl) == 0, "rsa", v->name, i);
+        check(ccrsa_verify_pkcs1v15(pub.key, NULL, dl, dg, sl, sig, &valid) == 0 && valid, "rsa", v->name, i);
+        dg[0] ^= 1;
+        check(ccrsa_verify_pkcs1v15(pub.key, NULL, dl, dg, sl, sig, &valid) == 0 && !valid, "rsa", "null oid tampered", i);
+        check(ccrsa_verify_pkcs1v15(pub.key, ccsha1_di()->oid, dl, dg, sl, sig, &valid) != 0 || !valid, "rsa", "null oid as sha1", i);
+    }
+}
+
 int main(void)
 {
     test_digest();
@@ -638,6 +717,7 @@ int main(void)
     test_rng();
     test_drbg_tail();
     test_kprng();
+    test_rsa();
 
     check(ccpost_validate() == 0, "post", "ccpost_validate (aes ecb/cbc/ctr, ctr_drbg kat)", 0);
 

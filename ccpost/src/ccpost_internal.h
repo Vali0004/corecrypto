@@ -26,6 +26,9 @@ cc_error_t ccpost_aes_ctr_validate(void);
 CC_PRIVATE
 cc_error_t ccpost_ctr_drbg_validate(void);
 
+CC_PRIVATE
+cc_error_t ccpost_rsa_verify_validate(void);
+
 #if CC_PLATFORM_XNU
 #ifndef _FN_KPRINTF
 #define _FN_KPRINTF
