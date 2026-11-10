@@ -64,6 +64,12 @@
     #define CC_ARCH_X86_64  1
 #elif (defined (__arm64__) && __arm64__) || (defined (_M_ARM64) && _M_ARM64)
     #define CC_ARCH_ARM64   1
+#elif defined (__aarch64__) && __aarch64__ && defined (__linux__)
+    // an arm64 Linux build host, where the Darwin assembly is not built
+    #define CC_ARCH_ARM64   1
+    #if !defined(CC_ENABLE_ASM)
+        #define CC_ENABLE_ASM   0
+    #endif
 #elif (defined (__arm__) && __arm__) || (defined (_M_ARM) && _M_ARM)
     #define CC_ARCH_ARM     1
 
