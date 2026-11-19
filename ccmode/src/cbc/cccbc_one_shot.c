@@ -8,7 +8,7 @@
 
 #include <corecrypto/ccmode.h>
 
-cc_error_t cccbc_one_shot(const struct ccmode_cbc *cbc, size_t key_length, const void *key, size_t nblocks, const void *iv, const void *in, void *out)
+cc_error_t cccbc_one_shot(const struct ccmode_cbc *cbc, size_t key_length, const void *key, const void *iv, size_t nblocks, const void *in, void *out)
 {
     cc_error_t err = CCERR_OK;
     cccbc_ctx_decl(cbc->size, ctx);

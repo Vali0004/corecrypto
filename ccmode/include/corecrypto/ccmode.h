@@ -280,8 +280,8 @@ CC_EXPORT
 cc_error_t cccbc_one_shot(const struct ccmode_cbc *cbc,
                           size_t key_length,
                           const void *key,
-                          size_t nblocks,
                           const void *iv,
+                          size_t nblocks,
                           const void *in,
                           void *out) CORECRYPTO_API_AVAILABLE_2012;
 

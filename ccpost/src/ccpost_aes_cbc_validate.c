@@ -31,7 +31,7 @@ cc_error_t ccpost_aes_cbc_validate_encrypt(void)
 
     /* Run AES-128 validation */
     cc_post_func_log("AES-128 encrypt validation");
-    if (cccbc_one_shot(ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_128, aes_128_key, 1, aes_128_iv, aes_128_plaintext, output) != CCERR_OK) {
+    if (cccbc_one_shot(ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_128, aes_128_key, aes_128_iv, 1, aes_128_plaintext, output) != CCERR_OK) {
         return CCERR_INTEGRITY;
     }
 
@@ -42,7 +42,7 @@ cc_error_t ccpost_aes_cbc_validate_encrypt(void)
 
     /* Run AES-192 validation */
     cc_post_func_log("AES-192 encrypt validation");
-    if (cccbc_one_shot(ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_192, aes_192_key, 1, aes_192_iv, aes_192_plaintext, output) != CCERR_OK) {
+    if (cccbc_one_shot(ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_192, aes_192_key, aes_192_iv, 1, aes_192_plaintext, output) != CCERR_OK) {
         return CCERR_INTEGRITY;
     }
 
@@ -52,7 +52,7 @@ cc_error_t ccpost_aes_cbc_validate_encrypt(void)
 
     /* Run AES-192 validation */
     cc_post_func_log("AES-256 encrypt validation");
-    if (cccbc_one_shot(ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_256, aes_256_key, 1, aes_256_iv, aes_256_plaintext, output) != CCERR_OK) {
+    if (cccbc_one_shot(ccaes_cbc_encrypt_mode(), CCAES_KEY_SIZE_256, aes_256_key, aes_256_iv, 1, aes_256_plaintext, output) != CCERR_OK) {
         return CCERR_INTEGRITY;
     }
 
@@ -70,7 +70,7 @@ cc_error_t ccpost_aes_cbc_validate_decrypt(void)
 
     /* Run AES-128 validation */
     cc_post_func_log("AES-128 decrypt validation");
-    if (cccbc_one_shot(ccaes_cbc_decrypt_mode(), CCAES_KEY_SIZE_128, aes_128_key, 1, aes_128_iv, aes_128_ciphertext, output) != CCERR_OK) {
+    if (cccbc_one_shot(ccaes_cbc_decrypt_mode(), CCAES_KEY_SIZE_128, aes_128_key, aes_128_iv, 1, aes_128_ciphertext, output) != CCERR_OK) {
         return CCERR_INTEGRITY;
     }
 
@@ -81,7 +81,7 @@ cc_error_t ccpost_aes_cbc_validate_decrypt(void)
 
     /* Run AES-192 validation */
     cc_post_func_log("AES-192 decrypt validation");
-    if (cccbc_one_shot(ccaes_cbc_decrypt_mode(), CCAES_KEY_SIZE_192, aes_192_key, 1, aes_192_iv, aes_192_ciphertext, output) != CCERR_OK) {
+    if (cccbc_one_shot(ccaes_cbc_decrypt_mode(), CCAES_KEY_SIZE_192, aes_192_key, aes_192_iv, 1, aes_192_ciphertext, output) != CCERR_OK) {
         return CCERR_INTEGRITY;
     }
 
@@ -91,7 +91,7 @@ cc_error_t ccpost_aes_cbc_validate_decrypt(void)
 
     /* Run AES-256 validation */
     cc_post_func_log("AES-256 decrypt validation");
-    if (cccbc_one_shot(ccaes_cbc_decrypt_mode(), CCAES_KEY_SIZE_256, aes_256_key, 1, aes_256_iv, aes_256_ciphertext, output) != CCERR_OK) {
+    if (cccbc_one_shot(ccaes_cbc_decrypt_mode(), CCAES_KEY_SIZE_256, aes_256_key, aes_256_iv, 1, aes_256_ciphertext, output) != CCERR_OK) {
         return CCERR_INTEGRITY;
     }
 
