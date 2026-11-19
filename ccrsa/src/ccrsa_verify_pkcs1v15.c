@@ -102,3 +102,25 @@ cc_error_t ccrsa_verify_pkcs1v15(ccrsa_pub_ctx_t pub,
 
     return CCERR_OK;
 }
+
+// emsa-pkcs1-v1_5 on its own, for Security.framework's adaptors, which do the rsa step themselves
+cc_error_t ccrsa_emsa_pkcs1v15_encode(size_t emlen, uint8_t *em, size_t dgstlen, const uint8_t *dgst,
+    const uint8_t *oid)
+{
+    return emsa_pkcs1v15_encode(emlen, em, oid, dgstlen, dgst);
+}
+
+cc_error_t ccrsa_emsa_pkcs1v15_verify(size_t emlen, uint8_t *em, size_t dgstlen, const uint8_t *dgst,
+    const uint8_t *oid)
+{
+    uint8_t expected[PD_MAX_K];
+    cc_error_t rc;
+
+    if (emlen > PD_MAX_K)
+        return CCERR_PARAMETER;
+    rc = emsa_pkcs1v15_encode(emlen, expected, oid, dgstlen, dgst);
+    if (rc == CCERR_OK && cc_cmp_safe(emlen, em, expected) != 0)
+        rc = CCERR_INTEGRITY;
+    cc_clear(sizeof(expected), expected);
+    return rc;
+}

@@ -7,4 +7,5 @@ set(CORECRYPTO_ccn_SOURCES
     ccn_cmp.c
     ccn_read_uint.c
     ccn_sub.c
+    ccn_extra.c
 )

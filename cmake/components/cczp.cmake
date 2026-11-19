@@ -5,4 +5,5 @@ set(CORECRYPTO_cczp_PUBLIC_HEADERS
 
 set(CORECRYPTO_cczp_SOURCES
     cczp_mont.c
+    cczp_init.c
 )

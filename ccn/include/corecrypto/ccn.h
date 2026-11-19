@@ -112,6 +112,25 @@ int ccn_read_uint(cc_size n, cc_unit *r, size_t data_nbytes, const uint8_t *data
 CC_EXPORT
 int ccn_write_uint_padded(cc_size n, const cc_unit *s, size_t out_nbytes, uint8_t *out);
 
+// r = s + v, the carry out
+cc_unit ccn_add1(cc_size n, cc_unit *r, const cc_unit *s, cc_unit v);
+
+// s and t compared as numbers of ns and nt units: -1, 0 or 1
+int ccn_cmpn(cc_size ns, const cc_unit *s, cc_size nt, const cc_unit *t);
+
+// r = v
+void ccn_seti(cc_size n, cc_unit *r, cc_unit v);
+
+// the octets of s big-endian without leading zeros (none for zero), and s written so: when out_nbytes is smaller
+// only the low out_nbytes octets are written
+size_t ccn_write_uint_size(cc_size n, const cc_unit *s);
+void ccn_write_uint(cc_size n, const cc_unit *s, size_t out_nbytes, void *out);
+
+// the same as a non-negative two's complement integer: a leading zero octet when the top bit is set, and one octet
+// for zero. out is zero-padded on the left when out_nbytes is larger
+size_t ccn_write_int_size(cc_size n, const cc_unit *s);
+void ccn_write_int(cc_size n, const cc_unit *s, size_t out_nbytes, void *out);
+
 CC_END_DECLS
 
 #endif /* __CORECRYPTO_CCN_H__  */

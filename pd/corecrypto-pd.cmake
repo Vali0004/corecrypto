@@ -13,9 +13,13 @@ set(PD_CORECRYPTO_COMPONENTS
 # the power-on self tests only run in the kext, rsa verify (ccrsa over ccn and cczp) is kext-only for now
 set(PD_CORECRYPTO_KERNEL_COMPONENTS ${PD_CORECRYPTO_COMPONENTS} cckprng ccpost ccrsa cczp)
 
+# Security.framework's private copy adds the asymmetric components its keys use: the kext's RSA verify over ccn and
+# cczp, and EC, DH and DER, which are declared and fail cleanly until they are implemented
+set(PD_CORECRYPTO_SECURITY_COMPONENTS ccn cczp ccrsa ccrsa_security ccec ccdh ccder)
+
 set(PD_CORECRYPTO_INCLUDE_DIRS "")
 # register_crypto.h declares the rsa hooks with the ccrsa types, so user space sees these headers too
-foreach(component IN LISTS PD_CORECRYPTO_KERNEL_COMPONENTS)
+foreach(component IN LISTS PD_CORECRYPTO_KERNEL_COMPONENTS ITEMS ccec ccdh ccder)
     list(APPEND PD_CORECRYPTO_INCLUDE_DIRS ${PD_CORECRYPTO_ROOT}/${component}/include)
 endforeach()
 set(PD_CORECRYPTO_INCLUDE_DIRS ${PD_CORECRYPTO_INCLUDE_DIRS} CACHE INTERNAL "corecrypto public headers")

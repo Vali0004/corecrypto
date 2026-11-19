@@ -87,4 +87,50 @@ cc_error_t ccrsa_verify_pkcs1v15(ccrsa_pub_ctx_t pub,
                                  const uint8_t *sig,
                                  bool *valid);
 
+
+// pd: what Security.framework's private copy uses. A full (private) key is the public key followed by room for
+// the private part, so ccrsa_ctx_public and the ccrsa_ctx_ macros work on either. The private operations are not
+// implemented yet: they return CCRSA_PD_UNSUPPORTED, and key generation and private-key import fail
+#include <corecrypto/ccdigest.h>
+#include <corecrypto/ccrng.h>
+
+#define CCRSA_PD_UNSUPPORTED       CCERR_INTERNAL
+#define ccrsa_full_ctx_size(_nbytes_)   (ccrsa_pub_ctx_size(_nbytes_) + 5 * ccn_sizeof_size(_nbytes_))
+#define ccrsa_full_ctx_decl(_nbytes_, _name_)   cc_ctx_decl(struct ccrsa_full_ctx, ccrsa_full_ctx_size(_nbytes_), _name_)
+#define ccrsa_ctx_public(_fk_)     ((ccrsa_pub_ctx_t)(_fk_))
+
+// the modulus's size in octets
+size_t ccrsa_block_size(ccrsa_pub_ctx_t pub);
+// out = in^e mod m, n units each
+cc_error_t ccrsa_pub_crypt(ccrsa_pub_ctx_t pub, cc_unit *out, const cc_unit *in);
+// a PKCS#1 RSAPublicKey (RFC 8017 A.1.1): the units its modulus needs, 0 when it is not one, and the key into pub,
+// whose ccrsa_ctx_n is its capacity
+cc_size ccrsa_import_pub_n(size_t inlen, const uint8_t *der);
+cc_error_t ccrsa_import_pub(ccrsa_pub_ctx_t pub, size_t inlen, const uint8_t *der);
+// EMSA-PKCS1-v1_5 (RFC 8017 9.2) into em, and em checked against the encoding of dgst: 0 when it matches. A NULL
+// oid is a bare digest
+cc_error_t ccrsa_emsa_pkcs1v15_encode(size_t emlen, uint8_t *em, size_t dgstlen, const uint8_t *dgst,
+    const uint8_t *oid);
+cc_error_t ccrsa_emsa_pkcs1v15_verify(size_t emlen, uint8_t *em, size_t dgstlen, const uint8_t *dgst,
+    const uint8_t *oid);
+
+// not implemented yet
+cc_error_t ccrsa_priv_crypt(ccrsa_full_ctx_t key, cc_unit *out, const cc_unit *in);
+cc_error_t ccrsa_eme_pkcs1v15_encode(struct ccrng_state *rng, size_t r_size, cc_unit *r, size_t s_size,
+    const uint8_t *s);
+cc_error_t ccrsa_eme_pkcs1v15_decode(size_t *r_size, uint8_t *r, size_t s_size, cc_unit *s);
+cc_error_t ccrsa_emsa_pss_encode(const struct ccdigest_info *di, const struct ccdigest_info *mgf, size_t salt_size,
+    const uint8_t *salt, size_t hash_size, const uint8_t *mhash, size_t embits, uint8_t *em);
+cc_error_t ccrsa_emsa_pss_decode(const struct ccdigest_info *di, const struct ccdigest_info *mgf, size_t salt_size,
+    size_t hash_size, const uint8_t *mhash, size_t embits, const uint8_t *em);
+cc_error_t ccrsa_oaep_encode(const struct ccdigest_info *di, struct ccrng_state *rng, size_t r_size, cc_unit *r,
+    size_t message_len, const uint8_t *message);
+cc_error_t ccrsa_oaep_decode(const struct ccdigest_info *di, size_t *r_len, uint8_t *r, size_t s_size, cc_unit *s);
+cc_error_t ccrsa_generate_fips186_key(size_t nbits, ccrsa_full_ctx_t fk, size_t e_size, const void *e,
+    struct ccrng_state *rng1, struct ccrng_state *rng2);
+size_t ccrsa_export_priv_size(ccrsa_full_ctx_t key);
+cc_error_t ccrsa_export_priv(ccrsa_full_ctx_t key, size_t out_len, uint8_t *out);
+cc_size ccrsa_import_priv_n(size_t inlen, const uint8_t *der);
+cc_error_t ccrsa_import_priv(ccrsa_full_ctx_t key, size_t inlen, const uint8_t *der);
+
 #endif /* __CORECRYPTO_CCRSA_H__ */

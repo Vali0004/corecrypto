@@ -12,7 +12,7 @@ These changes are experimental. They have not been audited, fuzzed or checked fo
 
 ## What it is for
 
-PureDarwin uses this fork as an external component, in place of the GPL corecrypto it carried before, for libSystem's symmetric primitives and for corecrypto.kext, including the kext's RSA PKCS#1 v1.5 signature verification (RFC 8017). It is temporary, and parts of it will be rewritten by hand. The changes are tested against known-answer vectors from the RFCs, FIPS 180-4, the NIST SP 800 series and CAVP, in cctest/pd, and the RSA verifier against Wycheproof and CAVP 186-3 SigVer15 vectors.
+PureDarwin uses this fork as an external component, in place of the GPL corecrypto it carried before, for libSystem's symmetric primitives and for corecrypto.kext, including the kext's RSA PKCS#1 v1.5 signature verification (RFC 8017). Security.framework builds a private copy with the pieces its keys use on top: DER (X.690), RSA public-key import and operations, the Diffie-Hellman group layout, and elliptic-curve public keys, ECDSA verification and ECDH, whose curve arithmetic comes from OpenSSL's libcrypto, which Security already links. RSA private-key operations, Diffie-Hellman, EC signing and key generation, ECIES and RFC 6637 key wrapping are declared there but not implemented: they return an error. It is temporary, and parts of it will be rewritten by hand. The changes are tested against known-answer vectors from the RFCs, FIPS 180-4, the NIST SP 800 series and CAVP, in cctest/pd, and the RSA verifier against Wycheproof and CAVP 186-3 SigVer15 vectors.
 
 ## Licence
 

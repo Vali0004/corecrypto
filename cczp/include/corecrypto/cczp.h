@@ -27,6 +27,11 @@ struct cczp {
     cc_unit u[];
 };
 
+// pd: n and the modulus at u are set, the rest of the context (its bit length, -m^-1 mod 2^CC_UNIT_BITS at u[n],
+// R^2 mod m at u[n + 1]) is computed from them. The reciprocal is not used, Montgomery multiplication needs none
+int cczp_init(cczp_t zp);
+int cczp_init_with_recip(cczp_t zp, const cc_unit *recip);
+
 CC_END_DECLS
 
 #endif /* __CORECRYPTO_CCZP_H__  */
